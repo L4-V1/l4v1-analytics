@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "l4v1-analytics"
+version = "0.0.0"
+description = ""
+authors = ["Miro Lavi"]
+license = "Apache License 2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+polars = "^0.20.20"
+plotly = "^5.20.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1.1"
+ruff = "^0.3.7"
+jupyterlab = "^4.1.6"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
