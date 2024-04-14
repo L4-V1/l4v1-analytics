@@ -119,7 +119,7 @@ def _get_impact_expressions(
 
 
 def pvm_table(
-    df: Union[pl.LazyFrame, pl.DataFrame],
+    df_primary: Union[pl.LazyFrame, pl.DataFrame],
     df_comparison: Union[pl.LazyFrame, pl.DataFrame],
     group_by_columns: Union[str, List[str]],
     volume_metric_name: str,
@@ -128,7 +128,7 @@ def pvm_table(
     """
     Computes a DataFrame showing the impacts of volume, rate, mix, new, and old.
 
-    :param df: Dataframe to analyze.
+    :param df_primary: Dataframe to analyze.
     :param df_comparison: Comparison dataframe.
     :param group_by_columns: Columns to group the data.
     :param volume_metric_name: Volume metric column name.
@@ -138,13 +138,13 @@ def pvm_table(
     # Validate inputs
     if isinstance(group_by_columns, str):
         group_by_columns = [group_by_columns]
-    if isinstance(df, pl.DataFrame):
-        df = df.lazy()
+    if isinstance(df_primary, pl.DataFrame):
+        df_primary = df_primary.lazy()
     if isinstance(df_comparison, pl.DataFrame):
         df_comparison = df_comparison.lazy()
 
-    df, df_comparison = _group_dataframes(
-        df,
+    df_primary, df_comparison = _group_dataframes(
+        df_primary,
         df_comparison,
         group_by_columns,
         volume_metric_name,
@@ -156,7 +156,7 @@ def pvm_table(
     )
 
     pvm_table = (
-        df.join(df_comparison, how="outer", on=group_by_columns, suffix="_old")
+        df_primary.join(df_comparison, how="outer", on=group_by_columns, suffix="_old")
         .select(
             _get_join_key_expression(group_by_columns),
             cs.numeric(),
