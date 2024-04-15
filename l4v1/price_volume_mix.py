@@ -38,9 +38,8 @@ def _get_join_key_expression(group_by_columns: List[str]) -> pl.Expr:
 
 
 def _get_impact_expressions(
-    metrics: Dict[str, str]
+    metrics: Dict[str, str],
 ) -> Tuple[pl.Expr, pl.Expr, pl.Expr, pl.Expr, pl.Expr]:
-
     # Volume
     volume_new = pl.col(metrics["volume"])
     volume_comparison = pl.col(f"{metrics['volume']}_comparison")
@@ -99,9 +98,8 @@ def pvm_table(
     df_primary: Union[pl.LazyFrame, pl.DataFrame],
     df_comparison: Union[pl.LazyFrame, pl.DataFrame],
     group_by_columns: Union[str, List[str]],
-    metrics: Dict[str,str],
+    metrics: Dict[str, str],
 ) -> pl.DataFrame:
-
     if isinstance(group_by_columns, str):
         group_by_columns = [group_by_columns]
     if isinstance(df_primary, pl.DataFrame):
@@ -119,7 +117,9 @@ def pvm_table(
     impact_expressions = _get_impact_expressions(metrics)
 
     pvm_table = (
-        df_primary.join(df_comparison, how="outer", on=group_by_columns, suffix="_comparison")
+        df_primary.join(
+            df_comparison, how="outer", on=group_by_columns, suffix="_comparison"
+        )
         .select(
             _get_join_key_expression(group_by_columns),
             cs.numeric(),
@@ -147,23 +147,27 @@ def _create_data_label(
         return f"{formatted_value} ({formatted_growth})"
     return formatted_value
 
+
 def _default_trace_settings(user_settings=None):
     """Generates default trace settings and merges them with user provided settings."""
     defaults = {
         "increasing": {"marker": {"color": "#00AF00"}},
         "decreasing": {"marker": {"color": "#E10000"}},
-        "totals": {"marker": {"color": "#F1F1F1", "line": {"color": "black", "width": 1}}},
+        "totals": {
+            "marker": {"color": "#F1F1F1", "line": {"color": "black", "width": 1}}
+        },
     }
     if user_settings:
         return {**defaults, **user_settings}
     return defaults
+
 
 def _default_layout_params(num_labels, user_params=None):
     """Generates default layout parameters and merges them with user provided settings."""
     defaults = {
         "height": num_labels * 25 + 100,
         "width": 750,  # Example default width
-        "template": "plotly_white"
+        "template": "plotly_white",
     }
     if user_params:
         return {**defaults, **user_params}
@@ -178,7 +182,6 @@ def pvm_plot(
     format_data_labels: Callable[[float], str] = None,
     plotly_params: Dict[str, Any] = {},
 ) -> go.Figure:
-
     if format_data_labels is None:
         format_data_labels = lambda value: f"{value:,.0f}"
     primary_label = primary_label or outcome_metric_name
@@ -197,7 +200,11 @@ def pvm_plot(
     impact_types = ["volume", "rate", "mix", "old", "new"]
     for impact_type in impact_types:
         for key in pvm_table.get_column("group_keys").unique().sort(descending=True):
-            impact_value = pvm_table.filter(pl.col("group_keys") == key).get_column(f"{impact_type}_impact").sum()
+            impact_value = (
+                pvm_table.filter(pl.col("group_keys") == key)
+                .get_column(f"{impact_type}_impact")
+                .sum()
+            )
             if impact_value != 0:
                 x_labels.append(f"({impact_type[0]}.) {key}".lower())
                 y_values.append(impact_value)
@@ -219,17 +226,18 @@ def pvm_plot(
     trace_settings = _default_trace_settings(plotly_params.get("trace_settings"))
     layout_params = _default_layout_params(len(x_labels), plotly_params.get("layout"))
 
-    fig = go.Figure(go.Waterfall(
-        orientation="h",
-        measure=measure_list,
-        x=y_values,
-        y=x_labels,
-        text=text_values,
-        textposition="auto",
-        textfont=dict(size=8),
-        **trace_settings
-    ))
+    fig = go.Figure(
+        go.Waterfall(
+            orientation="h",
+            measure=measure_list,
+            x=y_values,
+            y=x_labels,
+            text=text_values,
+            textposition="auto",
+            textfont=dict(size=8),
+            **trace_settings,
+        )
+    )
     fig.update_layout(**layout_params)
 
     return fig
-
