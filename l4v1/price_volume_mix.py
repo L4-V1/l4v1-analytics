@@ -150,7 +150,9 @@ def _create_data_label(
     return formatted_value
 
 
-def _default_pvm_plot_settings(num_labels: int, user_settings: Dict[str, Any] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+def _default_pvm_plot_settings(
+    num_labels: int, user_settings: Dict[str, Any] = None
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Generates default trace and layout settings for plotly graphs and merges them with user provided settings."""
     trace_defaults = {
         "increasing": {"marker": {"color": "#00AF00"}},
@@ -226,12 +228,14 @@ def pvm_plot(
     x_labels.append(f"<b>{primary_label}</b>".upper())
     y_values.append(outcome_new)
     data_labels.append(
-        _create_data_label(outcome_new, outcome_comparison, format_data_labels)
+        f"<b>{_create_data_label(outcome_new, outcome_comparison, format_data_labels)}</b>"
     )
     measure_list.append("total")
 
     # Get PVM plot default settings
-    trace_settings, layout_params = _default_pvm_plot_settings(len(x_labels), plotly_params)
+    trace_settings, layout_params = _default_pvm_plot_settings(
+        len(x_labels), plotly_params
+    )
 
     fig = go.Figure(
         go.Waterfall(
