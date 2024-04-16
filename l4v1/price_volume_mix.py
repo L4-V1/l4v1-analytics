@@ -8,10 +8,11 @@ def _group_dataframes(
     df: Union[pl.LazyFrame, pl.DataFrame],
     df_comparison: Union[pl.LazyFrame, pl.DataFrame],
     group_by_columns: Union[str, List[str]],
-    metrics: Dict[str, str],
+    volume_metric_name: str,
+    outcome_metric_name: str,
 ) -> Tuple[pl.LazyFrame, pl.LazyFrame]:
-    volume_expr = pl.col(metrics["volume"]).sum().cast(pl.Float64)
-    outcome_expr = pl.col(metrics["outcome"]).sum().cast(pl.Float64)
+    volume_expr = pl.col(volume_metric_name).sum().cast(pl.Float64)
+    outcome_expr = pl.col(outcome_metric_name).sum().cast(pl.Float64)
 
     def group_df(df: pl.LazyFrame):
         return df.group_by(group_by_columns).agg(volume_expr, outcome_expr)
@@ -38,16 +39,17 @@ def _get_join_key_expression(group_by_columns: List[str]) -> pl.Expr:
 
 
 def _get_impact_expressions(
-    metrics: Dict[str, str],
+    volume_metric_name: str,
+    outcome_metric_name: str,
 ) -> Tuple[pl.Expr, pl.Expr, pl.Expr, pl.Expr, pl.Expr]:
     # Volume
-    volume_new = pl.col(metrics["volume"])
-    volume_comparison = pl.col(f"{metrics['volume']}_comparison")
+    volume_new = pl.col(volume_metric_name)
+    volume_comparison = pl.col(f"{volume_metric_name}_comparison")
     volume_diff = volume_new - volume_comparison
 
     # Outcome
-    outcome_new = pl.col(metrics["outcome"])
-    outcome_comparison = pl.col(f"{metrics['outcome']}_comparison")
+    outcome_new = pl.col(outcome_metric_name)
+    outcome_comparison = pl.col(f"{outcome_metric_name}_comparison")
 
     # Rate
     rate_new = outcome_new / volume_new
@@ -98,7 +100,8 @@ def pvm_table(
     df_primary: Union[pl.LazyFrame, pl.DataFrame],
     df_comparison: Union[pl.LazyFrame, pl.DataFrame],
     group_by_columns: Union[str, List[str]],
-    metrics: Dict[str, str],
+    volume_metric_name: str,
+    outcome_metric_name: str,
 ) -> pl.DataFrame:
     if isinstance(group_by_columns, str):
         group_by_columns = [group_by_columns]
@@ -111,10 +114,13 @@ def pvm_table(
         df_primary,
         df_comparison,
         group_by_columns,
-        metrics,
+        volume_metric_name,
+        outcome_metric_name,
     )
 
-    impact_expressions = _get_impact_expressions(metrics)
+    impact_expressions = _get_impact_expressions(
+        volume_metric_name, outcome_metric_name
+    )
 
     pvm_table = (
         df_primary.join(
@@ -166,7 +172,7 @@ def _default_layout_params(num_labels, user_params=None):
     """Generates default layout parameters and merges them with user provided settings."""
     defaults = {
         "height": num_labels * 25 + 100,
-        "width": 750,  # Example default width
+        "width": 750,
         "template": "plotly_white",
     }
     if user_params:
@@ -187,15 +193,16 @@ def pvm_plot(
     primary_label = primary_label or outcome_metric_name
     comparison_label = comparison_label or f"COMPARISON {outcome_metric_name}"
 
-    x_labels, y_values, text_values, measure_list = [], [], [], []
+    x_labels, y_values, data_labels, measure_list = [], [], [], []
     outcome_comparison = pvm_table.get_column(f"{outcome_metric_name}_comparison").sum()
 
     x_labels.append(f"<b>{comparison_label}</b>".upper())
     y_values.append(outcome_comparison)
-    text_values.append(f"<b>{format_data_labels(outcome_comparison)}</b>")
+    data_labels.append(f"<b>{format_data_labels(outcome_comparison)}</b>")
     measure_list.append("absolute")
 
     cumulative_sum = outcome_comparison
+    previous_value = outcome_comparison
 
     impact_types = ["volume", "rate", "mix", "old", "new"]
     for impact_type in impact_types:
@@ -208,19 +215,24 @@ def pvm_plot(
             if impact_value != 0:
                 x_labels.append(f"({impact_type[0]}.) {key}".lower())
                 y_values.append(impact_value)
-                text_values.append(format_data_labels(impact_value))
+                data_labels.append(format_data_labels(impact_value))
                 measure_list.append("relative")
                 cumulative_sum += impact_value
 
         x_labels.append(f"<b>{impact_type.capitalize()} Impact Subtotal</b>")
         y_values.append(cumulative_sum)
-        text_values.append(format_data_labels(cumulative_sum))
+        data_labels.append(
+            _create_data_label(cumulative_sum, previous_value, format_data_labels)
+        )
         measure_list.append("absolute")
+        previous_value = cumulative_sum
 
     outcome_new = pvm_table.get_column(outcome_metric_name).sum()
     x_labels.append(f"<b>{primary_label}</b>".upper())
-    y_values.append(cumulative_sum)
-    text_values.append(format_data_labels(outcome_new))
+    y_values.append(outcome_new)
+    data_labels.append(
+        _create_data_label(outcome_new, outcome_comparison, format_data_labels)
+    )
     measure_list.append("total")
 
     trace_settings = _default_trace_settings(plotly_params.get("trace_settings"))
@@ -232,7 +244,7 @@ def pvm_plot(
             measure=measure_list,
             x=y_values,
             y=x_labels,
-            text=text_values,
+            text=data_labels,
             textposition="auto",
             textfont=dict(size=8),
             **trace_settings,
