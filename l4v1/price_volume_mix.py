@@ -138,10 +138,6 @@ def pvm_table(
     return pvm_table.collect()
 
 
-def _default_data_label_format(value: float) -> str:
-    return f"{value:,.0f}"
-
-
 def _create_data_label(
     value: float, previous_value: float, format_func: Callable
 ) -> str:
@@ -154,30 +150,29 @@ def _create_data_label(
     return formatted_value
 
 
-def _default_trace_settings(user_settings=None):
-    """Generates default trace settings and merges them with user provided settings."""
-    defaults = {
+def _default_pvm_plot_settings(num_labels: int, user_settings: Dict[str, Any] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Generates default trace and layout settings for plotly graphs and merges them with user provided settings."""
+    trace_defaults = {
         "increasing": {"marker": {"color": "#00AF00"}},
         "decreasing": {"marker": {"color": "#E10000"}},
         "totals": {
             "marker": {"color": "#F1F1F1", "line": {"color": "black", "width": 1}}
         },
     }
-    if user_settings:
-        return {**defaults, **user_settings}
-    return defaults
-
-
-def _default_layout_params(num_labels, user_params=None):
-    """Generates default layout parameters and merges them with user provided settings."""
-    defaults = {
+    layout_defaults = {
         "height": num_labels * 25 + 100,
         "width": 750,
         "template": "plotly_white",
     }
-    if user_params:
-        return {**defaults, **user_params}
-    return defaults
+
+    if user_settings:
+        trace_settings = {**trace_defaults, **user_settings.get("trace_settings", {})}
+        layout_settings = {**layout_defaults, **user_settings.get("layout", {})}
+    else:
+        trace_settings = trace_defaults
+        layout_settings = layout_defaults
+
+    return trace_settings, layout_settings
 
 
 def pvm_plot(
@@ -235,8 +230,8 @@ def pvm_plot(
     )
     measure_list.append("total")
 
-    trace_settings = _default_trace_settings(plotly_params.get("trace_settings"))
-    layout_params = _default_layout_params(len(x_labels), plotly_params.get("layout"))
+    # Get PVM plot default settings
+    trace_settings, layout_params = _default_pvm_plot_settings(len(x_labels), plotly_params)
 
     fig = go.Figure(
         go.Waterfall(
