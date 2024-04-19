@@ -20,6 +20,20 @@ def _group_dataframes(
     return group_df(df), group_df(df_comparison)
 
 
+def _convert_group_cols_to_str(
+    df_primary: pl.LazyFrame, df_comparison: pl.LazyFrame, group_column_names: list
+) -> Tuple[pl.LazyFrame, pl.LazyFrame]:
+    expressions = []
+    for col_name in group_column_names:
+        temp_expr = pl.col(col_name).cast(pl.Utf8).alias(col_name)
+        expressions.append(temp_expr)
+
+    df_primary = df_primary.with_columns(*expressions)
+    df_comparison = df_comparison.with_columns(*expressions)
+
+    return df_primary, df_comparison
+
+
 def _get_join_key_expression(group_by_columns: List[str]) -> pl.Expr:
     group_keys = list()
 
@@ -110,6 +124,10 @@ def pvm_table(
     if isinstance(df_comparison, pl.DataFrame):
         df_comparison = df_comparison.lazy()
 
+    df_primary, df_comparison = _convert_group_cols_to_str(
+        df_primary, df_comparison, group_by_columns
+    )
+
     df_primary, df_comparison = _group_dataframes(
         df_primary,
         df_comparison,
@@ -136,6 +154,25 @@ def pvm_table(
     )
 
     return pvm_table.collect()
+
+
+def _parse_metric_column_names(pvm_table: pl.LazyFrame) -> tuple:
+    impact_columns = pvm_table.select(cs.ends_with("_comparison")).columns
+    volume_col = impact_columns[0]
+    outcome_col = impact_columns[1]
+
+    volume_col_stripped = (
+        volume_col.replace("_comparison", "")
+        if volume_col.endswith("_comparison")
+        else ValueError()
+    )
+    outcome_col_stripped = (
+        outcome_col.replace("_comparison", "")
+        if outcome_col.endswith("_comparison")
+        else ValueError()
+    )
+
+    return (volume_col_stripped, outcome_col_stripped)
 
 
 def _create_data_label(
@@ -179,12 +216,12 @@ def _default_pvm_plot_settings(
 
 def pvm_plot(
     pvm_table: pl.DataFrame,
-    outcome_metric_name: str,
     primary_label: str = None,
     comparison_label: str = None,
     format_data_labels: Callable[[float], str] = None,
     plotly_params: Dict[str, Any] = {},
 ) -> go.Figure:
+    _, outcome_metric_name = _parse_metric_column_names(pvm_table)
     if format_data_labels is None:
         format_data_labels = lambda value: f"{value:,.0f}"
     primary_label = primary_label or outcome_metric_name
