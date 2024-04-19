@@ -214,13 +214,12 @@ def _default_pvm_plot_settings(
     return trace_settings, layout_settings
 
 
-def pvm_plot(
+def _prep_data_for_pvm_plot(
     pvm_table: pl.DataFrame,
-    primary_label: str = None,
-    comparison_label: str = None,
-    format_data_labels: Callable[[float], str] = None,
-    plotly_params: Dict[str, Any] = {},
-) -> go.Figure:
+    format_data_labels: Callable,
+    primary_label: str,
+    comparison_label: str,
+) -> Tuple[list, list, list, list]:
     _, outcome_metric_name = _parse_metric_column_names(pvm_table)
     if format_data_labels is None:
         format_data_labels = lambda value: f"{value:,.0f}"
@@ -273,6 +272,21 @@ def pvm_plot(
         f"<b>{_create_data_label(outcome_new, outcome_comparison, format_data_labels)}</b>"
     )
     measure_list.append("total")
+
+    return x_labels, y_values, data_labels, measure_list
+
+
+def pvm_plot(
+    pvm_table: pl.DataFrame,
+    primary_label: str = None,
+    comparison_label: str = None,
+    format_data_labels: Callable[[float], str] = None,
+    plotly_params: Dict[str, Any] = {},
+) -> go.Figure:
+
+    x_labels, y_values, data_labels, measure_list = _prep_data_for_pvm_plot(
+        pvm_table, format_data_labels, primary_label, comparison_label
+    )
 
     # Get PVM plot default settings
     trace_settings, layout_params = _default_pvm_plot_settings(
