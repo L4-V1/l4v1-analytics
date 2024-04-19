@@ -239,6 +239,11 @@ def pvm_plot(
     previous_value = outcome_comparison
 
     impact_types = ["volume", "rate", "mix", "old", "new"]
+    if (pvm_table.get_column("old_impact").sum() == 0) & (
+        pvm_table.get_column("new_impact").sum() == 0
+    ):
+        impact_types = ["volume", "rate", "mix"]
+
     for impact_type in impact_types:
         for key in pvm_table.get_column("group_keys").unique().sort(descending=True):
             impact_value = (
