@@ -4,34 +4,16 @@ import plotly.graph_objects as go
 from typing import Any, Callable, Dict, List, Tuple, Union
 
 
-def _group_dataframes(
-    df: Union[pl.LazyFrame, pl.DataFrame],
-    df_comparison: Union[pl.LazyFrame, pl.DataFrame],
-    group_by_columns: Union[str, List[str]],
-    volume_metric_name: str,
-    outcome_metric_name: str,
-) -> Tuple[pl.LazyFrame, pl.LazyFrame]:
-    volume_expr = pl.col(volume_metric_name).sum().cast(pl.Float64)
-    outcome_expr = pl.col(outcome_metric_name).sum().cast(pl.Float64)
-
-    def group_df(df: pl.LazyFrame):
-        return df.group_by(group_by_columns).agg(volume_expr, outcome_expr)
-
-    return group_df(df), group_df(df_comparison)
-
-
-def _convert_group_cols_to_str(
-    df_primary: pl.LazyFrame, df_comparison: pl.LazyFrame, group_column_names: list
-) -> Tuple[pl.LazyFrame, pl.LazyFrame]:
-    expressions = []
-    for col_name in group_column_names:
-        temp_expr = pl.col(col_name).cast(pl.Utf8).alias(col_name)
-        expressions.append(temp_expr)
-
-    df_primary = df_primary.with_columns(*expressions)
-    df_comparison = df_comparison.with_columns(*expressions)
-
-    return df_primary, df_comparison
+def _group_dataframe(
+    lf: pl.LazyFrame,
+    group_by_columns: List[str],
+    metric_names: List[str],
+) -> pl.LazyFrame:
+    transformed_cols = [
+        pl.col(col_name).cast(pl.Utf8).alias(col_name) for col_name in group_by_columns
+    ]
+    agg_expressions = [pl.col(metric).sum().cast(pl.Float64) for metric in metric_names]
+    return lf.group_by(transformed_cols).agg(agg_expressions)
 
 
 def _get_join_key_expression(group_by_columns: List[str]) -> pl.Expr:
@@ -47,7 +29,7 @@ def _get_join_key_expression(group_by_columns: List[str]) -> pl.Expr:
         group_keys.append(temp_expr)
 
     # Concatenate unique values returned by each expression
-    expr = pl.concat_str(*group_keys, separator="_").alias("group_keys")
+    expr = pl.concat_str(*group_keys, separator="|").alias("group_keys")
 
     return expr
 
@@ -124,17 +106,14 @@ def pvm_table(
     if isinstance(df_comparison, pl.DataFrame):
         df_comparison = df_comparison.lazy()
 
-    df_primary, df_comparison = _convert_group_cols_to_str(
-        df_primary, df_comparison, group_by_columns
-    )
-
-    df_primary, df_comparison = _group_dataframes(
-        df_primary,
-        df_comparison,
-        group_by_columns,
-        volume_metric_name,
-        outcome_metric_name,
-    )
+    df_primary, df_comparison = [
+        _group_dataframe(
+            df,
+            group_by_columns,
+            [volume_metric_name, outcome_metric_name],
+        )
+        for df in [df_primary, df_comparison]
+    ]
 
     impact_expressions = _get_impact_expressions(
         volume_metric_name, outcome_metric_name
@@ -283,7 +262,6 @@ def pvm_plot(
     format_data_labels: Callable[[float], str] = None,
     plotly_params: Dict[str, Any] = {},
 ) -> go.Figure:
-
     x_labels, y_values, data_labels, measure_list = _prep_data_for_pvm_plot(
         pvm_table, format_data_labels, primary_label, comparison_label
     )
