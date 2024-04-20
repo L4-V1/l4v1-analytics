@@ -99,6 +99,34 @@ def impact_table(
     volume_metric_name: str,
     outcome_metric_name: str,
 ) -> pl.DataFrame:
+    """
+    Generates a table with impact analysis results from primary and comparison data frames.
+
+    Parameters
+    ----------
+    df_primary : Union[pl.LazyFrame, pl.DataFrame]
+        The primary dataset to analyze.
+    df_comparison : Union[pl.LazyFrame, pl.DataFrame]
+        The dataset to compare against the primary dataset.
+    group_by_columns : Union[str, List[str]]
+        Column name(s) used to group data. Can be a single column name or a list of names.
+    volume_metric_name : str
+        The name of the column in the data frame that represents the volume metric.
+    outcome_metric_name : str
+        The name of the column in the data frame that represents the outcome metric.
+
+    Returns
+    -------
+    pl.DataFrame
+        A Polars DataFrame containing the results of the impact analysis.
+
+    Raises
+    ------
+    TypeError
+        If the input data frames are not Polars DataFrame or LazyFrame types.
+    ValueError
+        If any of the parameters are missing or if the 'group_by_columns' contains non-string types.
+    """
     # Ensure polars df type and convert to lazy
     if not all(
         isinstance(item, (pl.LazyFrame, pl.DataFrame))
@@ -271,10 +299,62 @@ def impact_plot(
     plotly_trace_settings: Optional[Dict[str, Any]] = None,
     plotly_layout_settings: Optional[Dict[str, Any]] = None,
 ) -> go.Figure:
+    """
+    Creates a waterfall plot visualizing the impact analysis results.
+
+    Parameters
+    ----------
+    impact_table : pl.DataFrame
+        The DataFrame containing impact analysis results, as returned by the `impact_table` function.
+    primary_total_label : str, optional
+        Label for the total of the primary data set in the plot. Defaults to the outcome metric name.
+    comparison_total_label : str, optional
+        Label for the total of the comparison data set in the plot. Defaults to "COMPARISON <outcome_metric_name>".
+    format_data_labels : str, optional
+        Format specification for the data labels. Defaults to "{:,.0f}". This should be a string
+        following Python's string formatting syntax, which allows custom numeric formatting, e.g.,
+        "{:.2f}" for floating-point numbers with two decimals, or "{:,.2f}" for numbers with commas
+        as thousands separators and two decimals.
+    title : str, optional
+        The title of the plot.
+    color_increase : str, optional
+        Color for positive changes. Can be specified as a hexadecimal code (e.g., "#00AF00") or
+        a named Plotly color (e.g., "green"). Defaults to green "#00AF00".
+    color_decrease : str, optional
+        Color for negative changes. Can be specified as a hexadecimal code (e.g., "#FF0000") or
+        a named Plotly color (e.g., "red"). Defaults to red "#FF0000".
+    color_total : str, optional
+        Color for total columns. Can be specified as a hexadecimal code (e.g., "#F1F1F1") or
+        a named Plotly color (e.g., "grey"). Defaults to light gray "#F1F1F1".
+    text_font_size : int, optional
+        Font size of the text in the plot. Defaults to 8.
+    plot_height : int, optional
+        Height of the plot in pixels. Calculated based on the number of labels if not provided.
+    plot_width : int, optional
+        Width of the plot in pixels. Defaults to 750.
+    plotly_template : str, optional
+        The Plotly template to use for the plot styling. Defaults to "plotly_white".
+    plotly_trace_settings : Dict[str, Any], optional
+        Additional trace settings for advanced customization using Plotly's trace options.
+    plotly_layout_settings : Dict[str, Any], optional
+        Additional layout settings for advanced customization using Plotly's layout options.
+
+    Returns
+    -------
+    go.Figure
+        A Plotly Figure object representing the impact analysis as a waterfall chart.
+
+    Raises
+    ------
+    TypeError
+        If `impact_table` is not a Polars DataFrame.
+    ValueError
+        If no columns with '_comparison' are found in `impact_table`.
+    """
     if not isinstance(impact_table, pl.DataFrame):
         raise TypeError("impact_table must be Polars DataFrame")
 
-    # Check for columns containing "_comparison" in their names
+    # Check for columns containing "_comparison" in the impact table
     comparison_columns = [col for col in impact_table.columns if "_comparison" in col]
     if not comparison_columns:
         raise ValueError(
