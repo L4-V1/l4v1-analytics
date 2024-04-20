@@ -1,7 +1,7 @@
 import polars as pl
 import polars.selectors as cs
 import plotly.graph_objects as go
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Tuple, Union, Optional
 
 
 def _group_dataframe(
@@ -166,34 +166,7 @@ def _create_data_label(
     return formatted_value
 
 
-def _default_pvm_plot_settings(
-    num_labels: int, user_settings: Dict[str, Any] = None
-) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generates default trace and layout settings for plotly graphs and merges them with user provided settings."""
-    trace_defaults = {
-        "increasing": {"marker": {"color": "#00AF00"}},
-        "decreasing": {"marker": {"color": "#E10000"}},
-        "totals": {
-            "marker": {"color": "#F1F1F1", "line": {"color": "black", "width": 1}}
-        },
-    }
-    layout_defaults = {
-        "height": num_labels * 25 + 100,
-        "width": 750,
-        "template": "plotly_white",
-    }
-
-    if user_settings:
-        trace_settings = {**trace_defaults, **user_settings.get("trace_settings", {})}
-        layout_settings = {**layout_defaults, **user_settings.get("layout", {})}
-    else:
-        trace_settings = trace_defaults
-        layout_settings = layout_defaults
-
-    return trace_settings, layout_settings
-
-
-def _prep_data_for_pvm_plot(
+def _prep_data_for_impact_plot(
     impact_table: pl.DataFrame,
     format_data_labels: Callable,
     primary_label: str,
@@ -257,32 +230,60 @@ def _prep_data_for_pvm_plot(
 
 def impact_plot(
     impact_table: pl.DataFrame,
-    primary_label: str = None,
-    comparison_label: str = None,
-    format_data_labels: Callable[[float], str] = None,
-    plotly_params: Dict[str, Any] = {},
+    primary_label: Optional[str] = None,
+    comparison_label: Optional[str] = None,
+    format_data_labels: Optional[Callable[[float], str]] = None,
+    title: Optional[str] = None,
+    color_increase: Optional[str] = "#00AF00",
+    color_decrease: Optional[str] = "#FF0000",
+    color_total: Optional[str] = "#F1F1F1",
+    text_font_size: Optional[int] = 8,
+    plot_height: Optional[int] = None,
+    plot_width: Optional[int] = None,
+    plotly_template: Optional[str] = None,
+    plotly_trace_settings: Optional[Dict[str, Any]] = None,
+    plotly_layout_settings: Optional[Dict[str, Any]] = None,
 ) -> go.Figure:
-    x_labels, y_values, data_labels, measure_list = _prep_data_for_pvm_plot(
-        impact_table, format_data_labels, primary_label, comparison_label
+    # Default formatting function if not provided
+    if not format_data_labels:
+        format_data_labels = lambda x: f"{x:,.0f}"
+
+    # Prepare data for plotting
+    x_labels, y_values, data_labels, measure_list = _prep_data_for_impact_plot(
+        impact_table,
+        format_data_labels,
+        primary_label,
+        comparison_label
     )
 
-    # Get PVM plot default settings
-    trace_settings, layout_params = _default_pvm_plot_settings(
-        len(x_labels), plotly_params
-    )
+    # Create the plot
+    fig = go.Figure(go.Waterfall(
+        orientation="h",
+        measure=measure_list,
+        x=y_values,
+        y=x_labels,
+        text=data_labels,
+        textposition="auto",
+        textfont=dict(size=text_font_size),
+        increasing=dict(marker=dict(color=color_increase)),
+        decreasing=dict(marker=dict(color=color_decrease)),
+        totals=dict(marker=dict(color=color_total, line=dict(color="black", width=1)))
+    ))
 
-    fig = go.Figure(
-        go.Waterfall(
-            orientation="h",
-            measure=measure_list,
-            x=y_values,
-            y=x_labels,
-            text=data_labels,
-            textposition="auto",
-            textfont=dict(size=8),
-            **trace_settings,
-        )
-    )
-    fig.update_layout(**layout_params)
+    # Update layout with basic settings
+    layout_params = {
+        "title": title,
+        "height": plot_height if plot_height else len(x_labels) * 25 + 100,
+        "width": plot_width if plot_width else 750,
+        "template": plotly_template if plotly_template else "plotly_white"
+    }
+
+    # Apply advanced settings if provided
+    if plotly_trace_settings:
+        fig.update_traces(plotly_trace_settings)
+    if plotly_layout_settings:
+        fig.update_layout(**plotly_layout_settings)
+    else:
+        fig.update_layout(**layout_params)
 
     return fig
