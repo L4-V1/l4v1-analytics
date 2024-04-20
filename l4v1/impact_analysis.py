@@ -53,9 +53,9 @@ def _get_impact_expressions(
     rate_avg_comparison = outcome_comparison.sum() / volume_comparison.sum()
 
     # Impact Expressions
+    rate_impact = (rate_new - rate_comparison) * volume_new
     volume_impact = volume_diff * rate_avg_comparison
     mix_impact = (rate_comparison - rate_avg_comparison) * volume_diff
-    rate_impact = (rate_new - rate_comparison) * volume_new
 
     def impact_expression(expr: pl.Expr, name: str) -> pl.Expr:
         expr = (
@@ -66,8 +66,8 @@ def _get_impact_expressions(
 
         return expr
 
-    volume_impact_expr = impact_expression(volume_impact, "volume")
     rate_impact_expr = impact_expression(rate_impact, "rate")
+    volume_impact_expr = impact_expression(volume_impact, "volume")
     mix_impact_expr = impact_expression(mix_impact, "mix")
 
     new_impact = (
@@ -84,15 +84,15 @@ def _get_impact_expressions(
     )
 
     return (
-        volume_impact_expr,
         rate_impact_expr,
+        volume_impact_expr,
         mix_impact_expr,
         new_impact,
         old_impact,
     )
 
 
-def pvm_table(
+def impact_table(
     df_primary: Union[pl.LazyFrame, pl.DataFrame],
     df_comparison: Union[pl.LazyFrame, pl.DataFrame],
     group_by_columns: Union[str, List[str]],
@@ -119,7 +119,7 @@ def pvm_table(
         volume_metric_name, outcome_metric_name
     )
 
-    pvm_table = (
+    impact_table = (
         df_primary.join(
             df_comparison, how="outer", on=group_by_columns, suffix="_comparison"
         )
@@ -132,13 +132,13 @@ def pvm_table(
         .sort(by="group_keys")
     )
 
-    return pvm_table.collect()
+    return impact_table.collect()
 
 
-def _parse_metric_column_names(pvm_table: pl.LazyFrame) -> tuple:
-    impact_columns = pvm_table.select(cs.ends_with("_comparison")).columns
-    volume_col = impact_columns[0]
-    outcome_col = impact_columns[1]
+def _parse_metric_column_names(impact_table: pl.LazyFrame) -> tuple:
+    metric_columns = impact_table.select(cs.ends_with("_comparison")).columns
+    volume_col = metric_columns[0]
+    outcome_col = metric_columns[1]
 
     volume_col_stripped = (
         volume_col.replace("_comparison", "")
@@ -151,7 +151,7 @@ def _parse_metric_column_names(pvm_table: pl.LazyFrame) -> tuple:
         else ValueError()
     )
 
-    return (volume_col_stripped, outcome_col_stripped)
+    return volume_col_stripped, outcome_col_stripped
 
 
 def _create_data_label(
@@ -194,19 +194,19 @@ def _default_pvm_plot_settings(
 
 
 def _prep_data_for_pvm_plot(
-    pvm_table: pl.DataFrame,
+    impact_table: pl.DataFrame,
     format_data_labels: Callable,
     primary_label: str,
     comparison_label: str,
 ) -> Tuple[list, list, list, list]:
-    _, outcome_metric_name = _parse_metric_column_names(pvm_table)
+    _, outcome_metric_name = _parse_metric_column_names(impact_table)
     if format_data_labels is None:
         format_data_labels = lambda value: f"{value:,.0f}"
     primary_label = primary_label or outcome_metric_name
     comparison_label = comparison_label or f"COMPARISON {outcome_metric_name}"
 
     x_labels, y_values, data_labels, measure_list = [], [], [], []
-    outcome_comparison = pvm_table.get_column(f"{outcome_metric_name}_comparison").sum()
+    outcome_comparison = impact_table.get_column(f"{outcome_metric_name}_comparison").sum()
 
     x_labels.append(f"<b>{comparison_label}</b>".upper())
     y_values.append(outcome_comparison)
@@ -216,25 +216,25 @@ def _prep_data_for_pvm_plot(
     cumulative_sum = outcome_comparison
     previous_value = outcome_comparison
 
-    impact_types = ["volume", "rate", "mix", "old", "new"]
-    if (pvm_table.get_column("old_impact").sum() == 0) & (
-        pvm_table.get_column("new_impact").sum() == 0
+    impact_types = ["rate", "volume", "mix", "old", "new"]
+    if (impact_table.get_column("old_impact").sum() == 0) & (
+        impact_table.get_column("new_impact").sum() == 0
     ):
-        impact_types = ["volume", "rate", "mix"]
+        impact_types = ["rate", "volume", "mix"]
 
     for impact_type in impact_types:
-        for key in pvm_table.get_column("group_keys").unique().sort(descending=True):
+        for key in impact_table.get_column("group_keys").unique().sort(descending=True):
             impact_value = (
-                pvm_table.filter(pl.col("group_keys") == key)
+                impact_table.filter(pl.col("group_keys") == key)
                 .get_column(f"{impact_type}_impact")
                 .sum()
             )
-            if impact_value != 0:
-                x_labels.append(f"({impact_type[0]}.) {key}".lower())
-                y_values.append(impact_value)
-                data_labels.append(format_data_labels(impact_value))
-                measure_list.append("relative")
-                cumulative_sum += impact_value
+            # if impact_value != 0:
+            x_labels.append(f"{key} ({impact_type[0]}.)".lower())
+            y_values.append(impact_value)
+            data_labels.append(format_data_labels(impact_value))
+            measure_list.append("relative")
+            cumulative_sum += impact_value
 
         x_labels.append(f"<b>{impact_type.capitalize()} Impact Subtotal</b>")
         y_values.append(cumulative_sum)
@@ -244,7 +244,7 @@ def _prep_data_for_pvm_plot(
         measure_list.append("absolute")
         previous_value = cumulative_sum
 
-    outcome_new = pvm_table.get_column(outcome_metric_name).sum()
+    outcome_new = impact_table.get_column(outcome_metric_name).sum()
     x_labels.append(f"<b>{primary_label}</b>".upper())
     y_values.append(outcome_new)
     data_labels.append(
@@ -255,15 +255,15 @@ def _prep_data_for_pvm_plot(
     return x_labels, y_values, data_labels, measure_list
 
 
-def pvm_plot(
-    pvm_table: pl.DataFrame,
+def impact_plot(
+    impact_table: pl.DataFrame,
     primary_label: str = None,
     comparison_label: str = None,
     format_data_labels: Callable[[float], str] = None,
     plotly_params: Dict[str, Any] = {},
 ) -> go.Figure:
     x_labels, y_values, data_labels, measure_list = _prep_data_for_pvm_plot(
-        pvm_table, format_data_labels, primary_label, comparison_label
+        impact_table, format_data_labels, primary_label, comparison_label
     )
 
     # Get PVM plot default settings
