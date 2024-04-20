@@ -99,12 +99,35 @@ def impact_table(
     volume_metric_name: str,
     outcome_metric_name: str,
 ) -> pl.DataFrame:
-    if isinstance(group_by_columns, str):
-        group_by_columns = [group_by_columns]
+    # Ensure polars df type and convert to lazy
+    if not all(
+        isinstance(item, (pl.LazyFrame, pl.DataFrame))
+        for item in (df_primary, df_comparison)
+    ):
+        raise TypeError(
+            "df_primary and df_comparison must be Polars LazyFrame or DataFrame"
+        )
     if isinstance(df_primary, pl.DataFrame):
         df_primary = df_primary.lazy()
     if isinstance(df_comparison, pl.DataFrame):
         df_comparison = df_comparison.lazy()
+
+    # Validate group_by_columns
+    if isinstance(group_by_columns, str):
+        group_by_columns = [group_by_columns]
+    elif isinstance(group_by_columns, list):
+        if not all(isinstance(col, str) for col in group_by_columns):
+            raise ValueError("All elements in group_by_columns must be strings.")
+    else:
+        raise TypeError(
+            "group_by_columns must be a list of strings or a single string."
+        )
+
+    # Check metric column names are string types
+    if not all(
+        isinstance(item, str) for item in (volume_metric_name, outcome_metric_name)
+    ):
+        raise TypeError("volume_metric_name and outcome_metric_name must be strings.")
 
     df_primary, df_comparison = [
         _group_dataframe(
@@ -169,19 +192,23 @@ def _create_data_label(
 def _prep_data_for_impact_plot(
     impact_table: pl.DataFrame,
     format_data_labels: Callable,
-    primary_label: str,
-    comparison_label: str,
+    primary_total_label: str,
+    comparison_total_label: str,
 ) -> Tuple[list, list, list, list]:
     _, outcome_metric_name = _parse_metric_column_names(impact_table)
     if format_data_labels is None:
         format_data_labels = lambda value: f"{value:,.0f}"
-    primary_label = primary_label or outcome_metric_name
-    comparison_label = comparison_label or f"COMPARISON {outcome_metric_name}"
+    primary_total_label = primary_total_label or outcome_metric_name
+    comparison_total_label = (
+        comparison_total_label or f"COMPARISON {outcome_metric_name}"
+    )
 
     x_labels, y_values, data_labels, measure_list = [], [], [], []
-    outcome_comparison = impact_table.get_column(f"{outcome_metric_name}_comparison").sum()
+    outcome_comparison = impact_table.get_column(
+        f"{outcome_metric_name}_comparison"
+    ).sum()
 
-    x_labels.append(f"<b>{comparison_label}</b>".upper())
+    x_labels.append(f"<b>{comparison_total_label}</b>".upper())
     y_values.append(outcome_comparison)
     data_labels.append(f"<b>{format_data_labels(outcome_comparison)}</b>")
     measure_list.append("absolute")
@@ -218,7 +245,7 @@ def _prep_data_for_impact_plot(
         previous_value = cumulative_sum
 
     outcome_new = impact_table.get_column(outcome_metric_name).sum()
-    x_labels.append(f"<b>{primary_label}</b>".upper())
+    x_labels.append(f"<b>{primary_total_label}</b>".upper())
     y_values.append(outcome_new)
     data_labels.append(
         f"<b>{_create_data_label(outcome_new, outcome_comparison, format_data_labels)}</b>"
@@ -230,52 +257,62 @@ def _prep_data_for_impact_plot(
 
 def impact_plot(
     impact_table: pl.DataFrame,
-    primary_label: Optional[str] = None,
-    comparison_label: Optional[str] = None,
-    format_data_labels: Optional[Callable[[float], str]] = None,
+    primary_total_label: Optional[str] = None,
+    comparison_total_label: Optional[str] = None,
+    format_data_labels: Optional[str] = "{:,.0f}",
     title: Optional[str] = None,
     color_increase: Optional[str] = "#00AF00",
     color_decrease: Optional[str] = "#FF0000",
     color_total: Optional[str] = "#F1F1F1",
     text_font_size: Optional[int] = 8,
     plot_height: Optional[int] = None,
-    plot_width: Optional[int] = None,
-    plotly_template: Optional[str] = None,
+    plot_width: Optional[int] = 750,
+    plotly_template: Optional[str] = "plotly_white",
     plotly_trace_settings: Optional[Dict[str, Any]] = None,
     plotly_layout_settings: Optional[Dict[str, Any]] = None,
 ) -> go.Figure:
-    # Default formatting function if not provided
-    if not format_data_labels:
-        format_data_labels = lambda x: f"{x:,.0f}"
+    if not isinstance(impact_table, pl.DataFrame):
+        raise TypeError("impact_table must be Polars DataFrame")
+
+    # Check for columns containing "_comparison" in their names
+    comparison_columns = [col for col in impact_table.columns if "_comparison" in col]
+    if not comparison_columns:
+        raise ValueError(
+            "No comparison column found in the impact_table. Use impact_table function and use it's returned dataframe for plotting."
+        )
+
+    # Convert format string to a formatting function
+    formatter = lambda x: format_data_labels.format(x)
 
     # Prepare data for plotting
     x_labels, y_values, data_labels, measure_list = _prep_data_for_impact_plot(
-        impact_table,
-        format_data_labels,
-        primary_label,
-        comparison_label
+        impact_table, formatter, primary_total_label, comparison_total_label
     )
 
     # Create the plot
-    fig = go.Figure(go.Waterfall(
-        orientation="h",
-        measure=measure_list,
-        x=y_values,
-        y=x_labels,
-        text=data_labels,
-        textposition="auto",
-        textfont=dict(size=text_font_size),
-        increasing=dict(marker=dict(color=color_increase)),
-        decreasing=dict(marker=dict(color=color_decrease)),
-        totals=dict(marker=dict(color=color_total, line=dict(color="black", width=1)))
-    ))
+    fig = go.Figure(
+        go.Waterfall(
+            orientation="h",
+            measure=measure_list,
+            x=y_values,
+            y=x_labels,
+            text=data_labels,
+            textposition="auto",
+            textfont=dict(size=text_font_size),
+            increasing=dict(marker=dict(color=color_increase)),
+            decreasing=dict(marker=dict(color=color_decrease)),
+            totals=dict(
+                marker=dict(color=color_total, line=dict(color="black", width=1))
+            ),
+        )
+    )
 
     # Update layout with basic settings
     layout_params = {
         "title": title,
         "height": plot_height if plot_height else len(x_labels) * 25 + 100,
-        "width": plot_width if plot_width else 750,
-        "template": plotly_template if plotly_template else "plotly_white"
+        "width": plot_width,
+        "template": plotly_template,
     }
 
     # Apply advanced settings if provided
