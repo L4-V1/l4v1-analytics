@@ -46,7 +46,7 @@ from l4v1 import impact_plot
 # Visualize the impact analysis
 fig = impact_plot(
     impact_table=impact_df,
-    format_data_labels="{:,.0f}€", # Optional
+    format_data_labels="{:,.0f}€", # Optional data label format, e.g. 1050.123 >> 1,050€
     primary_total_label="revenue week 2", # Optional label
     comparison_total_label="Revenue Week 1", # Optional label
     title="Impact Analysis Example", # Optional title
@@ -69,10 +69,7 @@ The impact plot visualizes always three types of impacts rate, volume, and mix i
 
 Additionally, if there are new or discontinued elements between the datasets, they are categorized under "new" or "old" impacts, signifying their presence in only one of the datasets.
 
-The impact plot aids in understanding the drivers behind revenue changes. For example:
-* The decline in the Food and Beverages category is due to decreases in both rate (-€1,340) and volume (-€1,113).
-* Sports and Travel Equipment shows a positive rate impact (+€342) due to an increase in average sales price; however, a significant drop in volume (-€2,930) results in a net negative effect.
-* Health and Beauty witnessed a drop in average sales price (-€1,609), but a substantial increase in volume (+€3,407) led to a positive mix impact (+€749), making it the best-performing category compared to the previous week.
+The impact plot aids in understanding the drivers behind revenue changes between the compared datasets.
 
 ### Features
 * Data Grouping: Group your data based on one or more columns.
