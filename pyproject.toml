@@ -1,6 +1,6 @@
 [project]
 name = "l4v1"
-version = "0.0.1"
+version = "0.0.2"
 description = "Add your description here"
 authors = [
     { name = "Miro Lavi", email = "mirolavi@gmail.com" }
@@ -26,4 +26,4 @@ dev-dependencies = [
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/l4v1_analytics"]
+packages = ["l4v1"]

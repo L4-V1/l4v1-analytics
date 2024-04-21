@@ -126,6 +126,31 @@ def impact_table(
         If the input data frames are not Polars DataFrame or LazyFrame types.
     ValueError
         If any of the parameters are missing or if the 'group_by_columns' contains non-string types.
+
+    Examples
+    --------
+    Here's a basic example demonstrating how to use the impact_table:
+
+    ```python
+    import polars as pl
+    from l4v1 import impact_table
+
+    # Load your datasets
+    sales_2024 = pl.read_csv("data/2024_sales.csv")
+    sales_2023 = pl.read_csv("data/2023_sales.csv")
+
+    # Perform the impact analysis
+    impact_df = impact_table(
+        sales_2024,
+        sales_2023,
+        group_by_columns=["product_category", "product_subcategory"],
+        volume_metric_name="item_quantity",
+        outcome_metric_name="revenue"
+    )
+
+    # Print the first few rows of the result
+    print(impact_df.head())
+    ```
     """
     # Ensure polars df type and convert to lazy
     if not all(
@@ -350,6 +375,38 @@ def impact_plot(
         If `impact_table` is not a Polars DataFrame.
     ValueError
         If no columns with '_comparison' are found in `impact_table`.
+
+    Examples
+    --------
+    Here's how to visualize the impact of sales volume on revenue:
+
+    ```python
+    import polars as pl
+    from l4v1 import impact_table, impact_plot
+
+    # Prepare the data
+    sales_data_2024 = pl.read_csv("data/2024_sales.csv")
+    sales_data_2023 = pl.read_csv("data/2023_sales.csv")
+
+    # Generate the impact table
+    impact_df = impact_table(
+        sales_data_2024,
+        sales_data_2023,
+        ["product_category", "product_subcategory"],
+        "item_quantity",
+        "revenue",
+    )
+
+    # Plot the results
+    fig = impact_plot(
+        impact_df,
+        primary_total_label="Total Revenue 2024",
+        comparison_total_label="Total Revenue 2023",
+        title="Year-over-Year Revenue Impact",
+        text_font_size=10
+    )
+    fig.show()
+    ```
     """
     if not isinstance(impact_table, pl.DataFrame):
         raise TypeError("impact_table must be Polars DataFrame")
