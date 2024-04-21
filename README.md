@@ -13,9 +13,11 @@ pip install l4v1
 
 ### Impact Analysis
 #### Impact Table
-The impact_table function allows you to compare two datasets: a primary dataset and a comparison dataset. This function is ideal for analyzing changes over time or between different data segments. You specify the dimensions to group the data, a volume metric (such as sales units or website visitors), and an outcome metric (such as revenue or orders).
+The impact_table function allows you to perform comparative analysis between two datasets—your primary dataset and a comparison dataset. This function is versatile, suitable for various analyses including period-to-period comparisons, budget vs. actual evaluations, or any scenario where understanding the drivers of change in an outcome metric (like revenue, orders, or any quantifiable metric) is crucial.
 
-Here's how to compare sales data between two weeks, analyzing differences in product categories:
+By specifying group dimensions, a volume metric (e.g., sales units or website visits), and an outcome metric (e.g., revenue, orders), you can dissect the contributing factors to performance variations. This tool is invaluable for identifying why certain metrics have increased or decreased compared to another period or benchmark.
+
+Here's an example of how to use impact_table to compare week-to-week sales data, focusing on differences across product categories:
 
 ```python
 import polars as pl
@@ -27,15 +29,12 @@ sales_week2 = pl.read_csv("data/sales_week2.csv")
 
 # Perform the impact analysis
 impact_df = impact_table(
-    sales_week2,
-    sales_week1,
+    df_primary=sales_week2,
+    df_comparison=sales_week1,
     group_by_columns=["product_category"],
     volume_metric_name="item_quantity",
     outcome_metric_name="revenue"
 )
-
-# Print the first few rows of the result
-print(impact_df.head())
 
 ```
 #### Impact Plot
@@ -45,11 +44,14 @@ from l4v1 import impact_plot
 
 # Visualize the impact analysis
 fig = impact_plot(
-    impact_table=impact_table_df,
+    impact_table=impact_df,
     format_data_labels="{:,.0f}€", # Optional
-    primary_total_label="REVENUE WEEK2", # Optional
-    comparison_total_label="REVENUE WEEK1", # Optional
-    title="Impact Analysis Example", # Optional
+    primary_total_label="revenue week 2", # Optional
+    comparison_total_label="Revenue Week 1", # Optional
+    title="Impact Analysis Example", # Optional title
+    color_total="lightgray", # Optional for total colors
+    color_increase="#00AF00", # Optional for increase color
+    color_decrease="#FF0000" # Optional for decrease color
 )
 fig.show()
 ```
