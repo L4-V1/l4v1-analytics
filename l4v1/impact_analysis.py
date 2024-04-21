@@ -1,13 +1,13 @@
 import polars as pl
 import polars.selectors as cs
 import plotly.graph_objects as go
-from typing import Any, Callable, Dict, List, Tuple, Union, Optional
+from typing import Callable
 
 
 def _group_dataframe(
     lf: pl.LazyFrame,
-    group_by_columns: List[str],
-    metric_names: List[str],
+    group_by_columns: list[str],
+    metric_names: list[str],
 ) -> pl.LazyFrame:
     transformed_cols = [
         pl.col(col_name).cast(pl.Utf8).alias(col_name) for col_name in group_by_columns
@@ -16,7 +16,7 @@ def _group_dataframe(
     return lf.group_by(transformed_cols).agg(agg_expressions)
 
 
-def _get_join_key_expression(group_by_columns: List[str]) -> pl.Expr:
+def _get_join_key_expression(group_by_columns: list[str]) -> pl.Expr:
     group_keys = list()
 
     for join_key in group_by_columns:
@@ -37,7 +37,7 @@ def _get_join_key_expression(group_by_columns: List[str]) -> pl.Expr:
 def _get_impact_expressions(
     volume_metric_name: str,
     outcome_metric_name: str,
-) -> Tuple[pl.Expr, pl.Expr, pl.Expr, pl.Expr, pl.Expr]:
+) -> tuple[pl.Expr, pl.Expr, pl.Expr, pl.Expr, pl.Expr]:
     # Volume
     volume_new = pl.col(volume_metric_name)
     volume_comparison = pl.col(f"{volume_metric_name}_comparison")
@@ -93,9 +93,9 @@ def _get_impact_expressions(
 
 
 def impact_table(
-    df_primary: Union[pl.LazyFrame, pl.DataFrame],
-    df_comparison: Union[pl.LazyFrame, pl.DataFrame],
-    group_by_columns: Union[str, List[str]],
+    df_primary: pl.LazyFrame | pl.DataFrame,
+    df_comparison: pl.LazyFrame | pl.DataFrame,
+    group_by_columns: str | list[str],
     volume_metric_name: str,
     outcome_metric_name: str,
 ) -> pl.DataFrame:
@@ -104,11 +104,11 @@ def impact_table(
 
     Parameters
     ----------
-    df_primary : Union[pl.LazyFrame, pl.DataFrame]
+    df_primary : pl.LazyFrame | pl.DataFrame
         The primary dataset to analyze.
-    df_comparison : Union[pl.LazyFrame, pl.DataFrame]
+    df_comparison : pl.LazyFrame | pl.DataFrame
         The dataset to compare against the primary dataset.
-    group_by_columns : Union[str, List[str]]
+    group_by_columns : str | list[str]
         Column name(s) used to group data. Can be a single column name or a list of names.
     volume_metric_name : str
         The name of the column in the data frame that represents the volume metric.
@@ -125,31 +125,28 @@ def impact_table(
     TypeError
         If the input data frames are not Polars DataFrame or LazyFrame types.
     ValueError
-        If any of the parameters are missing or if the 'group_by_columns' contains non-string types.
+        If any of the parameters are incorrect or if the 'group_by_columns' contains non-string types.
 
     Examples
     --------
-    Here's a basic example demonstrating how to use the impact_table:
+    Here's how you can use the `impact_table` to compare sales data between two periods:
 
     ```python
     import polars as pl
     from l4v1 import impact_table
 
-    # Load your datasets
-    sales_2024 = pl.read_csv("data/2024_sales.csv")
-    sales_2023 = pl.read_csv("data/2023_sales.csv")
+    sales_week_1 = pl.read_csv("sales_week_1.csv")
+    sales_week_2 = pl.read_csv("sales_week_2.csv")
 
-    # Perform the impact analysis
     impact_df = impact_table(
-        sales_2024,
-        sales_2023,
-        group_by_columns=["product_category", "product_subcategory"],
-        volume_metric_name="item_quantity",
-        outcome_metric_name="revenue"
+        df_primary=sales_week_2,
+        df_comparison=sales_week_1,
+        group_by_columns="product_category",
+        volume_metric_name="units_sold",
+        outcome_metric_name="total_revenue"
     )
 
-    # Print the first few rows of the result
-    print(impact_df.head())
+    print(impact_df)
     ```
     """
     # Ensure polars df type and convert to lazy
@@ -247,7 +244,7 @@ def _prep_data_for_impact_plot(
     format_data_labels: Callable,
     primary_total_label: str,
     comparison_total_label: str,
-) -> Tuple[list, list, list, list]:
+) -> tuple[list, list, list, list]:
     _, outcome_metric_name = _parse_metric_column_names(impact_table)
     if format_data_labels is None:
         format_data_labels = lambda value: f"{value:,.0f}"
@@ -261,7 +258,7 @@ def _prep_data_for_impact_plot(
         f"{outcome_metric_name}_comparison"
     ).sum()
 
-    x_labels.append(f"<b>{comparison_total_label}</b>".upper())
+    x_labels.append(f"<b>{comparison_total_label}</b>")
     y_values.append(outcome_comparison)
     data_labels.append(f"<b>{format_data_labels(outcome_comparison)}</b>")
     measure_list.append("absolute")
@@ -298,7 +295,7 @@ def _prep_data_for_impact_plot(
         previous_value = cumulative_sum
 
     outcome_new = impact_table.get_column(outcome_metric_name).sum()
-    x_labels.append(f"<b>{primary_total_label}</b>".upper())
+    x_labels.append(f"<b>{primary_total_label}</b>")
     y_values.append(outcome_new)
     data_labels.append(
         f"<b>{_create_data_label(outcome_new, outcome_comparison, format_data_labels)}</b>"
@@ -310,19 +307,19 @@ def _prep_data_for_impact_plot(
 
 def impact_plot(
     impact_table: pl.DataFrame,
-    primary_total_label: Optional[str] = None,
-    comparison_total_label: Optional[str] = None,
-    format_data_labels: Optional[str] = "{:,.0f}",
-    title: Optional[str] = None,
-    color_increase: Optional[str] = "#00AF00",
-    color_decrease: Optional[str] = "#FF0000",
-    color_total: Optional[str] = "#F1F1F1",
-    text_font_size: Optional[int] = 8,
-    plot_height: Optional[int] = None,
-    plot_width: Optional[int] = 750,
-    plotly_template: Optional[str] = "plotly_white",
-    plotly_trace_settings: Optional[Dict[str, Any]] = None,
-    plotly_layout_settings: Optional[Dict[str, Any]] = None,
+    primary_total_label: str = None,
+    comparison_total_label: str = None,
+    format_data_labels: str = "{:,.0f}",
+    title: str = None,
+    color_increase: str = "#00AF00",
+    color_decrease: str = "#FF0000",
+    color_total: str = "#F1F1F1",
+    text_font_size: int = 8,
+    plot_height: int = None,
+    plot_width: int = 750,
+    plotly_template: str = "plotly_white",
+    plotly_trace_settings: dict[str, any] = None,
+    plotly_layout_settings: dict[str, any] = None,
 ) -> go.Figure:
     """
     Creates a waterfall plot visualizing the impact analysis results.
@@ -331,50 +328,37 @@ def impact_plot(
     ----------
     impact_table : pl.DataFrame
         The DataFrame containing impact analysis results, as returned by the `impact_table` function.
-    primary_total_label : str, optional
-        Label for the total of the primary data set in the plot. Defaults to the outcome metric name.
-    comparison_total_label : str, optional
-        Label for the total of the comparison data set in the plot. Defaults to "COMPARISON <outcome_metric_name>".
+    primary_total_label : str | None, optional
+        Label for the total of the primary dataset in the plot. Defaults to the outcome metric name.
+    comparison_total_label : str | None, optional
+        Label for the total of the comparison dataset in the plot. Defaults to "COMPARISON <outcome_metric_name>".
     format_data_labels : str, optional
-        Format specification for the data labels. Defaults to "{:,.0f}". This should be a string
-        following Python's string formatting syntax, which allows custom numeric formatting, e.g.,
-        "{:.2f}" for floating-point numbers with two decimals, or "{:,.2f}" for numbers with commas
-        as thousands separators and two decimals.
-    title : str, optional
+        Format specification for the data labels. Defaults to "{:,.0f}".
+    title : str | None, optional
         The title of the plot.
     color_increase : str, optional
-        Color for positive changes. Can be specified as a hexadecimal code (e.g., "#00AF00") or
-        a named Plotly color (e.g., "green"). Defaults to green "#00AF00".
+        Color for positive changes. Can be specified as a hexadecimal code or a named Plotly color.
     color_decrease : str, optional
-        Color for negative changes. Can be specified as a hexadecimal code (e.g., "#FF0000") or
-        a named Plotly color (e.g., "red"). Defaults to red "#FF0000".
+        Color for negative changes. Can be specified as a hexadecimal code or a named Plotly color.
     color_total : str, optional
-        Color for total columns. Can be specified as a hexadecimal code (e.g., "#F1F1F1") or
-        a named Plotly color (e.g., "grey"). Defaults to light gray "#F1F1F1".
+        Color for total columns. Can be specified as a hexadecimal code or a named Plotly color.
     text_font_size : int, optional
-        Font size of the text in the plot. Defaults to 8.
-    plot_height : int, optional
-        Height of the plot in pixels. Calculated based on the number of labels if not provided.
+        Font size of the text in the plot.
+    plot_height : int | None, optional
+        Height of the plot in pixels, calculated based on the number of labels if not provided.
     plot_width : int, optional
-        Width of the plot in pixels. Defaults to 750.
+        Width of the plot in pixels.
     plotly_template : str, optional
-        The Plotly template to use for the plot styling. Defaults to "plotly_white".
-    plotly_trace_settings : Dict[str, Any], optional
+        The Plotly template to use for the plot styling.
+    plotly_trace_settings : dict[str, any] | None, optional
         Additional trace settings for advanced customization using Plotly's trace options.
-    plotly_layout_settings : Dict[str, Any], optional
+    plotly_layout_settings : dict[str, any] | None, optional
         Additional layout settings for advanced customization using Plotly's layout options.
 
     Returns
     -------
     go.Figure
         A Plotly Figure object representing the impact analysis as a waterfall chart.
-
-    Raises
-    ------
-    TypeError
-        If `impact_table` is not a Polars DataFrame.
-    ValueError
-        If no columns with '_comparison' are found in `impact_table`.
 
     Examples
     --------
@@ -384,27 +368,18 @@ def impact_plot(
     import polars as pl
     from l4v1 import impact_table, impact_plot
 
-    # Prepare the data
-    sales_data_2024 = pl.read_csv("data/2024_sales.csv")
-    sales_data_2023 = pl.read_csv("data/2023_sales.csv")
+    sales_week_1 = pl.read_csv("sales_week_1.csv")
+    sales_week_2 = pl.read_csv("sales_week_2.csv")
 
-    # Generate the impact table
     impact_df = impact_table(
-        sales_data_2024,
-        sales_data_2023,
-        ["product_category", "product_subcategory"],
-        "item_quantity",
-        "revenue",
+        df_primary=sales_week_2,
+        df_comparison=sales_week_1,
+        ["product_category"],
+        "units_sold",
+        "total_revenue",
     )
 
-    # Plot the results
-    fig = impact_plot(
-        impact_df,
-        primary_total_label="Total Revenue 2024",
-        comparison_total_label="Total Revenue 2023",
-        title="Year-over-Year Revenue Impact",
-        text_font_size=10
-    )
+    fig = impact_plot(impact_df)
     fig.show()
     ```
     """
