@@ -47,7 +47,7 @@ from l4v1 import impact_plot
 fig = impact_plot(
     impact_table=impact_df,
     format_data_labels="{:,.0f}€", # Optional data label format, e.g. 1050.123 >> 1,050€
-    primary_total_label="revenue week 2", # Optional label
+    primary_total_label="Revenue Week 2", # Optional label
     comparison_total_label="Revenue Week 1", # Optional label
     title="Impact Analysis Example", # Optional title
     color_total="lightgray", # Optional for total bar colors
@@ -70,8 +70,3 @@ The impact plot visualizes always three types of impacts rate, volume, and mix i
 Additionally, if there are new or discontinued elements between the datasets, they are categorized under "new" or "old" impacts, signifying their presence in only one of the datasets.
 
 The impact plot aids in understanding the drivers behind revenue changes between the compared datasets.
-
-### Features
-* Data Grouping: Group your data based on one or more columns.
-* Impact Calculation: Automatically calculate volume, outcome, and rate impacts between two datasets.
-* Visual Representation: Create waterfall plots to visually represent the impact analysis results.
