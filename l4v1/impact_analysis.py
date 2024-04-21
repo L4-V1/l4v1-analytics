@@ -131,23 +131,21 @@ def impact_table(
     --------
     Here's how you can use the `impact_table` to compare sales data between two periods:
 
-    ```python
-    import polars as pl
-    from l4v1 import impact_table
+    >>> import polars as pl
+    >>> from l4v1 import impact_table
 
-    sales_week_1 = pl.read_csv("sales_week_1.csv")
-    sales_week_2 = pl.read_csv("sales_week_2.csv")
+    >>> sales_week_1 = pl.read_csv("sales_week_1.csv")
+    >>> sales_week_2 = pl.read_csv("sales_week_2.csv")
 
-    impact_df = impact_table(
-        df_primary=sales_week_2,
-        df_comparison=sales_week_1,
-        group_by_columns="product_category",
-        volume_metric_name="units_sold",
-        outcome_metric_name="total_revenue"
-    )
+    >>> impact_df = impact_table(
+    >>>     df_primary=sales_week_2,
+    >>>     df_comparison=sales_week_1,
+    >>>     group_by_columns="product_category",
+    >>>     volume_metric_name="units_sold",
+    >>>     outcome_metric_name="total_revenue"
+    >>> )
 
-    print(impact_df)
-    ```
+    >>> print(impact_df)
     """
     # Ensure polars df type and convert to lazy
     if not all(
@@ -364,24 +362,22 @@ def impact_plot(
     --------
     Here's how to visualize the impact of sales volume on revenue:
 
-    ```python
-    import polars as pl
-    from l4v1 import impact_table, impact_plot
+    >>> import polars as pl
+    >>> from l4v1 import impact_table, impact_plot
 
-    sales_week_1 = pl.read_csv("sales_week_1.csv")
-    sales_week_2 = pl.read_csv("sales_week_2.csv")
+    >>> sales_week_1 = pl.read_csv("sales_week_1.csv")
+    >>> sales_week_2 = pl.read_csv("sales_week_2.csv")
 
-    impact_df = impact_table(
-        df_primary=sales_week_2,
-        df_comparison=sales_week_1,
-        ["product_category"],
-        "units_sold",
-        "total_revenue",
-    )
+    >>> impact_df = impact_table(
+    >>>    df_primary=sales_week_2,
+    >>>    df_comparison=sales_week_1,
+    >>>    ["product_category"],
+    >>>    "units_sold",
+    >>>    "total_revenue",
+    >>> )
 
-    fig = impact_plot(impact_df)
-    fig.show()
-    ```
+    >>> fig = impact_plot(impact_df)
+    >>> fig.show()
     """
     if not isinstance(impact_table, pl.DataFrame):
         raise TypeError("impact_table must be Polars DataFrame")
