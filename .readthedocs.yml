@@ -3,15 +3,10 @@ version: 2
 sphinx:
   configuration: docs/conf.py
 
-build:
-  os: "ubuntu-22.04"
-  tools:
-    python: "3.11"
-
 python:
-  version: 3.12
+  version: 3.9
   install:
-    - requirements: requirements.txt
+    - requirements: docs/requirements.txt
 
 formats:
   - htmlzip
@@ -19,4 +14,4 @@ formats:
   - epub
 
 build:
-  image: latest
+  image: latest  # Ensure this is the correct image for your needs
