@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-l4v1 Documentation
-==================
+l4v1
+=====
 
 l4v1 is a Python library designed to simplify some data-analytics tasks using data manipulation 
 and visualization techniques. Built on top of Polars and Plotly, it offers a straightforward API 
@@ -17,4 +17,5 @@ It is work in progress and more functionality is to be added in future.
    :caption: Contents
    :hidden:
 
+   quick_start/quick_start.ipynb
    documentation
