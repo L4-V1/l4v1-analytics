@@ -18,3 +18,4 @@ It is work in progress and more functionality is to be added in future.
    :hidden:
 
    documentation
+   quick_start/quick_start
