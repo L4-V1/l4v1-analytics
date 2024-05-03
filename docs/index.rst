@@ -17,5 +17,4 @@ It is work in progress and more functionality is to be added in future.
    :caption: Contents
    :hidden:
 
-   quick_start/quick_start.ipynb
    documentation
