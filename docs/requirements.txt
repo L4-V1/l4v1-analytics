@@ -44,7 +44,6 @@ jupyter-server-terminals==0.5.3
 jupyterlab==4.1.6
 jupyterlab-pygments==0.3.0
 jupyterlab-server==2.26.0
--e file:///home/miro/projects/l4v1-analytics
 markupsafe==2.1.5
 matplotlib-inline==0.1.7
 mistune==3.0.2
