@@ -1,0 +1,8 @@
+packaging==24.0
+    # via plotly
+plotly==5.21.0
+    # via l4v1
+polars==0.20.21
+    # via l4v1
+tenacity==8.2.3
+    # via plotly
